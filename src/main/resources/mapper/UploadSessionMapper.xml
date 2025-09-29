@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diy.mapper.UploadSessionMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="UploadSessionResultMap" type="com.diy.entity.UploadSession">
+        <id property="uuid" column="uuid"/>
+        <result property="repository" column="repository"/>
+        <result property="ossTempKey" column="oss_temp_key"/>
+        <result property="currentSize" column="current_size"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="lastActivity" column="last_activity"/>
+        <result property="status" column="status" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+    </resultMap>
+    
+    <!-- 批量更新会话状态 -->
+    <update id="batchUpdateStatus">
+        UPDATE upload_sessions 
+        SET status = #{newStatus},
+            last_activity = NOW()
+        WHERE uuid IN
+        <foreach collection="uuids" item="uuid" open="(" separator="," close=")">
+            #{uuid}
+        </foreach>
+        AND status = #{oldStatus}
+    </update>
+    
+    <!-- 查找需要清理的会话（包含临时文件信息） -->
+    <select id="findSessionsToCleanup" resultMap="UploadSessionResultMap">
+        SELECT uuid, repository, oss_temp_key, current_size, 
+               started_at, last_activity, status
+        FROM upload_sessions 
+        WHERE (
+            (status = 'ACTIVE' AND last_activity &lt; #{expireTime})
+            OR 
+            (status = 'COMPLETED' AND started_at &lt; #{cleanupTime})
+            OR
+            (status = 'EXPIRED' AND started_at &lt; #{cleanupTime})
+        )
+        AND oss_temp_key IS NOT NULL
+    </select>
+    
+    <!-- 获取会话统计信息 -->
+    <select id="getSessionStats" resultType="java.util.Map">
+        SELECT 
+            status,
+            COUNT(*) as count,
+            COALESCE(SUM(current_size), 0) as total_size,
+            AVG(current_size) as avg_size
+        FROM upload_sessions 
+        GROUP BY status
+    </select>
+    
+    <!-- 按时间范围查询会话 -->
+    <select id="findSessionsByTimeRange" resultMap="UploadSessionResultMap">
+        SELECT uuid, repository, oss_temp_key, current_size, 
+               started_at, last_activity, status
+        FROM upload_sessions
+        WHERE 1=1
+        <if test="startTime != null">
+            AND started_at >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND started_at &lt;= #{endTime}
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        <if test="repository != null">
+            AND repository = #{repository}
+        </if>
+        ORDER BY started_at DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+</mapper>

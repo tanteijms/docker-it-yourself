@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diy.mapper.BlobMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BlobResultMap" type="com.diy.entity.Blob">
+        <id property="digest" column="digest"/>
+        <result property="size" column="size"/>
+        <result property="ossObjectKey" column="oss_object_key"/>
+        <result property="contentType" column="content_type"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+    
+    <!-- 通过digest查询blob，包含详细错误处理 -->
+    <select id="findByDigestWithValidation" resultMap="BlobResultMap">
+        SELECT digest, size, oss_object_key, content_type, created_at
+        FROM blobs 
+        WHERE digest = #{digest}
+          AND size > 0
+    </select>
+    
+    <!-- 批量检查blob存在性 -->
+    <select id="checkDigestsExist" resultType="java.lang.String">
+        SELECT digest 
+        FROM blobs 
+        WHERE digest IN
+        <foreach collection="digests" item="digest" open="(" separator="," close=")">
+            #{digest}
+        </foreach>
+    </select>
+    
+    <!-- 根据大小范围查询blob -->
+    <select id="findBySize" resultMap="BlobResultMap">
+        SELECT digest, size, oss_object_key, content_type, created_at
+        FROM blobs
+        WHERE 1=1
+        <if test="minSize != null">
+            AND size >= #{minSize}
+        </if>
+        <if test="maxSize != null">
+            AND size &lt;= #{maxSize}
+        </if>
+        ORDER BY created_at DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+</mapper>

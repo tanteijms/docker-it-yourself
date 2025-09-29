@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diy.mapper.ManifestMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="ManifestResultMap" type="com.diy.entity.Manifest">
+        <id property="id" column="id"/>
+        <result property="digest" column="digest"/>
+        <result property="repository" column="repository"/>
+        <result property="tag" column="tag"/>
+        <result property="content" column="content"/>
+        <result property="mediaType" column="media_type"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+    
+    <!-- 构建manifest list的查询 -->
+    <select id="buildManifestList" resultMap="ManifestResultMap">
+        SELECT id, digest, repository, tag, content, media_type, created_at
+        FROM manifests 
+        WHERE repository = #{repository} 
+          AND tag = #{tag}
+          AND media_type LIKE '%manifest%'
+        ORDER BY created_at DESC
+    </select>
+    
+    <!-- 根据内容类型查询manifest -->
+    <select id="findByMediaType" resultMap="ManifestResultMap">
+        SELECT id, digest, repository, tag, content, media_type, created_at
+        FROM manifests
+        WHERE media_type = #{mediaType}
+        <if test="repository != null">
+            AND repository = #{repository}
+        </if>
+        ORDER BY created_at DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+    
+    <!-- 更新manifest内容 -->
+    <update id="updateContent">
+        UPDATE manifests 
+        SET content = #{content},
+            media_type = #{mediaType},
+            created_at = NOW()
+        WHERE repository = #{repository} 
+          AND digest = #{digest}
+    </update>
+    
+    <!-- 获取仓库统计信息 -->
+    <select id="getRepositoryStats" resultType="java.util.Map">
+        SELECT 
+            COUNT(*) as manifest_count,
+            COUNT(DISTINCT tag) as tag_count,
+            MAX(created_at) as last_updated
+        FROM manifests 
+        WHERE repository = #{repository}
+    </select>
+
+</mapper>

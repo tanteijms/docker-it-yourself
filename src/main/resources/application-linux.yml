@@ -1,0 +1,28 @@
+# Linux测试环境配置
+spring:
+  datasource:
+    # 连接Windows的MySQL数据库（通过WSL2）
+    url: jdbc:mysql://host.docker.internal:3306/docker_registry?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: diy
+    password: diy
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 使用相同的OSS配置
+aliyun:
+  oss:
+    enabled: true
+    endpoint: https://oss-cn-beijing.aliyuncs.com
+    bucket-name: tyjbmembpsjoLUyBJxtqT5knH7RZV0
+    access-key-id: LTAI5tSVRKd1pvQiXCVAZ3Ub
+    access-key-secret: tyjbmembpsjoLUyBJxtqT5knH7RZV0
+    blob-prefix: test-blobs/
+    temp-prefix: test-temp/
+
+logging:
+  level:
+    com.diy: INFO
