@@ -16,6 +16,7 @@ buildNumber.properties
 *.ctxt
 .mtj.tmp/
 *.jar
+!docker-it-yourself-0.0.1-SNAPSHOT.jar
 *.war
 *.nar
 *.ear
@@ -73,3 +74,6 @@ jacoco.xml
 # Application specific
 application-local.yml
 application-secret.yml
+
+AliOSSrefer/
+review/

@@ -1,0 +1,17 @@
+Hello Docker Registry!
+This is a test file for SHA256 calculation.
+File size and hash will be used in Postman API testing.
+
+Docker Registry HTTP API V2 测试文件
+文件上传测试内容
+
+这个文件用于测试文件哈希值计算器的功能。
+SHA256哈希值和文件大小将用于Postman中的API测试。
+
+测试内容包括：
+- 英文字符
+- 中文字符
+- 数字和符号: 123456789 !@#$%^&*()
+- 换行符和空格
+
+文件大小应该正好适合测试上传功能。

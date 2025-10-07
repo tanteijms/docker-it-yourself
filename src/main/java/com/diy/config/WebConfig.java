@@ -29,7 +29,6 @@ public class WebConfig implements WebMvcConfigurer {
     public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
         configurer
                 .favorParameter(false)
-                .favorPathExtension(false)
                 .ignoreAcceptHeader(false)
                 .defaultContentType(MediaType.APPLICATION_JSON)
                 // 添加Docker Registry特定的媒体类型

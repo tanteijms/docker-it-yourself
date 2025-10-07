@@ -2,7 +2,9 @@ spring:
   application:
     name: docker-registry
   profiles:
-    active: dev
+    # 本地开发使用 local 配置（包含真实密钥，不会提交到Git）
+    # 生产环境使用 dev 或 linux 配置（需要环境变量）
+    active: local
   jackson:
     default-property-inclusion: non_null
     time-zone: Asia/Shanghai
@@ -15,10 +17,16 @@ server:
 # 通用配置
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    # 彩色控制台输出格式
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%p]){highlight} %clr([%t]){faint} %clr(%logger{39}){cyan} %clr(:){faint} %m%n"
   level:
     root: INFO
-    com.diy: DEBUG
+    com:
+      diy:
+        mapper: debug # MyBatis SQL日志
+        service: info # Service层日志
+        controller: info # Controller层日志
+        config: info # 配置类日志
 
 # 分片上传配置
 docker-registry:

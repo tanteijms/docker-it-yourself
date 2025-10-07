@@ -2,8 +2,6 @@ package com.diy.config;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
-import com.aliyun.oss.common.auth.CredentialsProviderFactory;
-import com.aliyun.oss.common.auth.StaticCredentialsProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -36,16 +34,11 @@ public class OssConfig {
         log.info("Initializing OSS client with endpoint: {}, bucket: {}",
                 ossProperties.getEndpoint(), ossProperties.getBucketName());
 
-        // 创建凭证提供者
-        StaticCredentialsProvider credentialsProvider = CredentialsProviderFactory
-                .newDefaultCredentialProvider(
-                        ossProperties.getAccessKeyId(),
-                        ossProperties.getAccessKeySecret());
-
-        // 创建OSS客户端
+        // 直接使用AccessKey创建OSS客户端（简化方案，兼容性更好）
         OSS ossClient = new OSSClientBuilder().build(
                 ossProperties.getEndpoint(),
-                credentialsProvider);
+                ossProperties.getAccessKeyId(),
+                ossProperties.getAccessKeySecret());
 
         // 验证连接
         try {

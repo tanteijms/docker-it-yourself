@@ -13,13 +13,16 @@ mybatis:
     map-underscore-to-camel-case: true
 
 # 使用相同的OSS配置
+# 请在系统环境变量中设置：
+# export OSS_ACCESS_KEY_ID="你的AccessKeyId"
+# export OSS_ACCESS_KEY_SECRET="你的AccessKeySecret"
 aliyun:
   oss:
     enabled: true
     endpoint: https://oss-cn-beijing.aliyuncs.com
-    bucket-name: tyjbmembpsjoLUyBJxtqT5knH7RZV0
-    access-key-id: LTAI5tSVRKd1pvQiXCVAZ3Ub
-    access-key-secret: tyjbmembpsjoLUyBJxtqT5knH7RZV0
+    bucket-name: docker-it-yourself
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
     blob-prefix: test-blobs/
     temp-prefix: test-temp/
 

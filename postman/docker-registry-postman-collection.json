@@ -1,0 +1,749 @@
+{
+  "info": {
+    "name": "Docker Registry HTTP API V2",
+    "description": "Complete Docker Registry API testing collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Health Check",
+      "item": [
+        {
+          "name": "Check API Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('API version check successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.response.to.have.header('Docker-Distribution-Api-Version');",
+                  "});",
+                  "",
+                  "pm.test('Response has correct format', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('version');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health Ping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/_ping",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "_ping"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Health check successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.response.to.have.header('Docker-Distribution-Api-Version');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02. Blob Operations",
+      "item": [
+        {
+          "name": "Start Upload Session",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/uploads/",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "uploads", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Upload session created', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "    pm.response.to.have.header('Location');",
+                  "    pm.response.to.have.header('Docker-Upload-UUID');",
+                  "});",
+                  "",
+                  "// Save upload UUID",
+                  "if (pm.response.code === 202) {",
+                  "    const location = pm.response.headers.get('Location');",
+                  "    if (location) {",
+                  "        const uuid = location.split('/').pop();",
+                  "        pm.environment.set('uploadUuid', uuid);",
+                  "        console.log('Upload UUID saved: ' + uuid);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload Chunk",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/octet-stream"
+              },
+              {
+                "key": "Content-Range", 
+                "value": "0-86", 
+                "description": "手动输入格式: 0-{文件大小-1}，例如文件95字节就写0-94"
+              },
+              {
+                "key": "X-File-SHA256",
+                "value": "sha256:在这里输入你的SHA256值",
+                "description": "PowerShell计算: Get-FileHash test.txt | %{\"sha256:$($_.Hash.ToLower())\"}"
+              }
+            ],
+            "body": {
+              "mode": "raw", 
+              "raw": "Default test content for demo - replace with binary file upload when testing real files.",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              },
+              "description": "🔥 重要：上传真实文件时，请选择Body -> binary标签，然后Select Files选择你的文件，并确保Content-Range和X-File-SHA256头设置正确"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/uploads/{{uploadUuid}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "uploads", "{{uploadUuid}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "pre-request",
+              "script": {
+                "exec": [
+                  "// 读取Header中的SHA256值（支持大小写）",
+                  "const fileSHA256 = pm.request.headers.get('X-File-SHA256') || pm.request.headers.get('x-file-sha256');",
+                  "const contentRange = pm.request.headers.get('Content-Range') || pm.request.headers.get('content-range');",
+                  "",
+                  "if (fileSHA256 && fileSHA256.startsWith('sha256:') && fileSHA256.length > 10) {",
+                  "    // 使用Header中设置的SHA256值（上传真实文件模式）",
+                  "    pm.environment.set('contentDigest', fileSHA256);",
+                  "    ",
+                  "    // 从Content-Range中提取文件大小",
+                  "    if (contentRange && contentRange.includes('-')) {",
+                  "        const parts = contentRange.split('-');",
+                  "        if (parts.length === 2) {",
+                  "            const fileSize = parseInt(parts[1]) + 1;",
+                  "            pm.environment.set('blobSize', fileSize);",
+                  "            console.log('📏 文件大小:', fileSize, '字节');",
+                  "        }",
+                  "    }",
+                  "    ",
+                  "    console.log('✅ 文件上传模式');",
+                  "    console.log('🔑 SHA256:', fileSHA256);",
+                  "    console.log('🔗 Content-Range:', contentRange);",
+                  "    console.log('');",
+                  "    console.log('📝 请确保：');",
+                  "    console.log('   1. Body选择binary并选择你的文件');",
+                  "    console.log('   2. Content-Range格式正确（0-{文件大小-1}）');",
+                  "} else {",
+                  "    // 使用默认文本内容测试",
+                  "    const crypto = require('crypto-js');",
+                  "    const testContent = 'Default test content for demo - replace with binary file upload when testing real files.';",
+                  "    const hash = crypto.SHA256(testContent).toString();",
+                  "    const digest = `sha256:${hash}`;",
+                  "    ",
+                  "    pm.environment.set('contentDigest', digest);",
+                  "    pm.environment.set('blobSize', testContent.length);",
+                  "    ",
+                  "    console.log('🔄 默认测试模式');",
+                  "    console.log('📝 测试内容:', testContent.length, '字节');",
+                  "    console.log('🔑 SHA256:', digest);",
+                  "    console.log('');",
+                  "    console.log('💡 要上传真实文件，请设置：');",
+                  "    console.log('   X-File-SHA256: sha256:你的文件hash');",
+                  "    console.log('   Content-Range: 0-{文件大小-1}');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Chunk uploaded successfully', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "    pm.response.to.have.header('Range');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Complete Upload",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/uploads/{{uploadUuid}}?digest={{contentDigest}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "uploads", "{{uploadUuid}}"],
+              "query": [
+                {
+                  "key": "digest",
+                  "value": "{{contentDigest}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "pre-request",
+              "script": {
+                "exec": [
+                  "// 检查contentDigest是否已设置",
+                  "const contentDigest = pm.environment.get('contentDigest');",
+                  "console.log('🔍 检查Complete Upload参数:');",
+                  "console.log('   contentDigest:', contentDigest || '❌ 未设置');",
+                  "",
+                  "if (!contentDigest || contentDigest.length < 10) {",
+                  "    console.log('⚠️  警告: contentDigest未正确设置!');",
+                  "    console.log('💡 请确保先运行Upload Chunk并正确设置X-File-SHA256');",
+                  "} else {",
+                  "    console.log('✅ contentDigest已设置，可以继续');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Upload completed successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.response.to.have.header('Location');",
+                  "    pm.response.to.have.header('Docker-Content-Digest');",
+                  "});",
+                  "",
+                  "// Save blob digest for later use",
+                  "if (pm.response.code === 201) {",
+                  "    const digest = pm.response.headers.get('Docker-Content-Digest');",
+                  "    pm.environment.set('blobDigest', digest);",
+                  "    console.log('✅ Blob上传成功!');",
+                  "    console.log('🔑 Blob digest saved:', digest);",
+                  "} else {",
+                  "    console.log('❌ Complete Upload失败');",
+                  "    console.log('🔍 请检查digest参数是否正确');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Blob Exists (HEAD)",
+          "request": {
+            "method": "HEAD",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/{{blobDigest}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "{{blobDigest}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Blob exists check successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.response.to.have.header('Content-Length');",
+                  "    pm.response.to.have.header('Docker-Content-Digest');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download Blob",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/{{blobDigest}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "{{blobDigest}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Blob downloaded successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.response.to.have.header('Content-Length');",
+                  "    pm.response.to.have.header('Docker-Content-Digest');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Upload Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/uploads/{{uploadUuid}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "uploads", "{{uploadUuid}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Upload status retrieved', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "    pm.response.to.have.header('Range');",
+                  "    pm.response.to.have.header('Docker-Upload-UUID');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel Upload",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/uploads/{{uploadUuid}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "uploads", "{{uploadUuid}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Upload cancelled successfully', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03. Manifest Operations",
+      "item": [
+        {
+          "name": "Upload Manifest",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.docker.distribution.manifest.v2+json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schemaVersion\": 2,\n  \"mediaType\": \"application/vnd.docker.distribution.manifest.v2+json\",\n  \"config\": {\n    \"mediaType\": \"application/vnd.docker.container.image.v1+json\",\n    \"digest\": \"{{blobDigest}}\",\n    \"size\": {{blobSize}}\n  },\n  \"layers\": [\n    {\n      \"mediaType\": \"application/vnd.docker.image.rootfs.diff.tar.gzip\",\n      \"digest\": \"{{blobDigest}}\",\n      \"size\": {{blobSize}}\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/{{tag}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "{{tag}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "pre-request",
+              "script": {
+                "exec": [
+                  "// 验证必要的变量是否已设置",
+                  "const blobDigest = pm.environment.get('blobDigest');",
+                  "const blobSize = pm.environment.get('blobSize');",
+                  "",
+                  "console.log('🔍 检查Upload Manifest参数:');",
+                  "console.log('   blobDigest:', blobDigest || '❌ 未设置');",
+                  "console.log('   blobSize:', blobSize || '❌ 未设置');",
+                  "",
+                  "if (!blobDigest || blobDigest.length < 10) {",
+                  "    console.log('⚠️  警告: blobDigest未正确设置!');",
+                  "    console.log('💡 请确保先完成Complete Upload');",
+                  "}",
+                  "",
+                  "if (!blobSize || blobSize === '') {",
+                  "    console.log('⚠️  警告: blobSize未正确设置!');",
+                  "    console.log('💡 请确保在Upload Chunk中正确设置Content-Range');",
+                  "}",
+                  "",
+                  "if (blobDigest && blobSize) {",
+                  "    console.log('✅ 参数检查通过，可以上传manifest');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Manifest uploaded successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.response.to.have.header('Location');",
+                  "    pm.response.to.have.header('Docker-Content-Digest');",
+                  "});",
+                  "",
+                  "// Save manifest digest",
+                  "if (pm.response.code === 201) {",
+                  "    const digest = pm.response.headers.get('Docker-Content-Digest');",
+                  "    pm.environment.set('manifestDigest', digest);",
+                  "    console.log('✅ Manifest上传成功!');",
+                  "    console.log('🔑 Manifest digest saved:', digest);",
+                  "} else {",
+                  "    console.log('❌ Manifest上传失败');",
+                  "    console.log('🔍 请检查blobDigest和blobSize是否正确');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Manifest Exists (HEAD)",
+          "request": {
+            "method": "HEAD",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.docker.distribution.manifest.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/{{tag}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "{{tag}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Manifest exists check successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.response.to.have.header('Content-Type');",
+                  "    pm.response.to.have.header('Docker-Content-Digest');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Manifest by Tag",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.docker.distribution.manifest.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/{{tag}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "{{tag}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Manifest retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.response.to.have.header('Content-Type');",
+                  "    pm.response.to.have.header('Docker-Content-Digest');",
+                  "});",
+                  "",
+                  "pm.test('Manifest has correct format', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('schemaVersion');",
+                  "    pm.expect(jsonData).to.have.property('mediaType');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Manifest by Digest",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.docker.distribution.manifest.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/{{manifestDigest}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "{{manifestDigest}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Manifest retrieved by digest', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.response.to.have.header('Content-Type');",
+                  "    pm.response.to.have.header('Docker-Content-Digest');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Manifest",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/{{manifestDigest}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "{{manifestDigest}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Manifest deleted successfully', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04. Error Handling Tests",
+      "item": [
+        {
+          "name": "404 - Nonexistent Blob",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/blobs/sha256:nonexistent",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "blobs", "sha256:nonexistent"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 404 for nonexistent blob', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error response format is correct', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('errors');",
+                  "    pm.expect(jsonData.errors[0]).to.have.property('code', 'BLOB_UNKNOWN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404 - Nonexistent Manifest",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/nonexistent-tag",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "nonexistent-tag"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 404 for nonexistent manifest', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error response format is correct', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('errors');",
+                  "    pm.expect(jsonData.errors[0]).to.have.property('code', 'MANIFEST_UNKNOWN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 - Invalid Manifest JSON",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.docker.distribution.manifest.v2+json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{invalid json}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/test-invalid",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "test-invalid"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 400 for invalid JSON', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error response format is correct', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('errors');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "415 - Unsupported Media Type",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "some text content"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v2/{{repository}}/manifests/test-unsupported",
+              "host": ["{{baseUrl}}"],
+              "path": ["v2", "{{repository}}", "manifests", "test-unsupported"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 415 for unsupported media type', function () {",
+                  "    pm.response.to.have.status(415);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "repository",
+      "value": "myapp"
+    },
+    {
+      "key": "tag",
+      "value": "latest"
+    },
+    {
+      "key": "uploadUuid",
+      "value": ""
+    },
+    {
+      "key": "blobDigest",
+      "value": ""
+    },
+    {
+      "key": "manifestDigest",
+      "value": ""
+    },
+    {
+      "key": "contentDigest",
+      "value": ""
+    },
+    {
+      "key": "blobSize",
+      "value": ""
+    },
+    {
+      "key": "testContent",
+      "value": ""
+    }
+  ]
+}
